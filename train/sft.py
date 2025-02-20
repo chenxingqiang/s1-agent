@@ -18,9 +18,6 @@ class TrainingConfig:
     wandb_entity: Optional[str] = field(default="openmodels-org")
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
-    custom_gradient_checkpointing_kwargs: dict = field(
-        default_factory=lambda: {"use_reentrant": False}
-    )
     custom_fsdp_config: dict = field(
         default_factory=lambda: {
             "transformer_layer_cls_to_wrap": ["Qwen2DecoderLayer"],
@@ -42,9 +39,8 @@ def train():
     parser = transformers.HfArgumentParser((TrainingConfig, trl.SFTConfig))
     config, args = parser.parse_args_into_dataclasses()
     
-    # Enable gradient checkpointing and update configs
-    args.gradient_checkpointing = True
-    args.gradient_checkpointing_kwargs = config.custom_gradient_checkpointing_kwargs
+    # Disable gradient checkpointing since we're using FSDP activation checkpointing
+    args.gradient_checkpointing = False
     
     # Update args.fsdp_config with our custom config
     if hasattr(args, 'fsdp_config'):

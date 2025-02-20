@@ -19,16 +19,20 @@ class TrainingConfig:
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
     gradient_checkpointing: bool = field(default=True)
-    gradient_checkpointing_kwargs: dict = field(default={"use_reentrant": False})
-    fsdp_config: dict = field(default={
-        "transformer_layer_cls_to_wrap": ["Qwen2DecoderLayer"],
-        "min_num_params": 0,
-        "xla": False,
-        "xla_fsdp_v2": False,
-        "xla_fsdp_grad_ckpt": False,
-        "activation_checkpointing": True,
-        "limit_all_gathers": True,
-    })
+    gradient_checkpointing_kwargs: dict = field(
+        default_factory=lambda: {"use_reentrant": False}
+    )
+    fsdp_config: dict = field(
+        default_factory=lambda: {
+            "transformer_layer_cls_to_wrap": ["Qwen2DecoderLayer"],
+            "min_num_params": 0,
+            "xla": False,
+            "xla_fsdp_v2": False,
+            "xla_fsdp_grad_ckpt": False,
+            "activation_checkpointing": True,
+            "limit_all_gathers": True,
+        }
+    )
 
     def __post_init__(self):
         os.environ['WANDB_PROJECT'] = self.wandb_project

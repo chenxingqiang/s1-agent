@@ -22,7 +22,7 @@ class TrainingConfig:
     gradient_checkpointing_kwargs: dict = field(
         default_factory=lambda: {"use_reentrant": False}
     )
-    fsdp_config: dict = field(
+    custom_fsdp_config: dict = field(
         default_factory=lambda: {
             "transformer_layer_cls_to_wrap": ["Qwen2DecoderLayer"],
             "min_num_params": 0,
@@ -42,6 +42,11 @@ def train():
     # parsing input
     parser = transformers.HfArgumentParser((TrainingConfig, trl.SFTConfig))
     config, args = parser.parse_args_into_dataclasses()
+    
+    # Update args.fsdp_config with our custom config
+    if hasattr(args, 'fsdp_config'):
+        args.fsdp_config.update(config.custom_fsdp_config)
+    
     log_config = {**asdict(config), **asdict(args)}
     logging.info(f"Training config: {log_config}")
 
@@ -88,12 +93,6 @@ def train():
         eval_dataset=dataset['test'] if 'test' in dataset else dataset['train'],
         args=args,
         data_collator=collator
-    )
-
-    training_args = TrainingArguments(
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
-        max_grad_norm=0.5,
     )
 
     trainer.train()

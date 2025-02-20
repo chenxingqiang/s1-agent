@@ -13,7 +13,7 @@ from transformers import TrainingArguments
 @dataclass
 class TrainingConfig:
     model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct")
-    block_size: int = field(default=32768)
+    block_size: int = field(default=2048)
     wandb_project: Optional[str] = field(default="s1-agent")
     wandb_entity: Optional[str] = field(default=None)
     use_wandb: bool = field(default=False)
@@ -26,8 +26,12 @@ class TrainingConfig:
             "xla": False,
             "xla_fsdp_v2": False,
             "xla_fsdp_grad_ckpt": False,
-            "activation_checkpointing": False,
+            "activation_checkpointing": True,
             "limit_all_gathers": True,
+            "cpu_ram_efficient_loading": True,
+            "forward_prefetch": True,
+            "backward_prefetch": "BACKWARD_PRE",
+            "use_orig_params": True,
         }
     )
 

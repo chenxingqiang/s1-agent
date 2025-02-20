@@ -1,7 +1,8 @@
 # Reference Running: bash train/sft.sh
 # {'train_runtime': 5268.8407, 'train_samples_per_second': 0.949, 'train_steps_per_second': 0.119, 'train_loss': 0.1172730620391667, 'epoch': 5.0}
 uid="$(date +%Y%m%d_%H%M%S)"
-base_model="Qwen/Qwen2.5-32B-Instruct"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+base_model="Qwen/Qwen2.5-1.5B-Instruct"
 lr=1e-5
 min_lr=0
 epochs=5

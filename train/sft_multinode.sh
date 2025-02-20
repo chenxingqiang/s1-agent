@@ -1,5 +1,5 @@
 uid="$(date +%Y%m%d_%H%M%S)"
-base_model="Qwen/Qwen2.5-32B-Instruct" # meta-llama/Llama-3.1-70B-Instruct
+base_model="Qwen/Qwen2.5-1.5B-Instruct" # meta-llama/Llama-3.1-70B-Instruct
 lr=1e-5
 min_lr=0
 epochs=5
@@ -38,7 +38,7 @@ train/sft.py \
 --adam_beta1 0.9 \
 --adam_beta2 0.95 \
 --output_dir="ckpts/s1_${uid}" \
---hub_model_id="simplescaling/s1-${uid}" \
+--hub_model_id="xingqiang/s1-agent-${uid}" \
 --push_to_hub=True \
 --hub_always_push=True \
 --num_train_epochs ${epochs} \

@@ -83,7 +83,7 @@ def _process_example_grading(qhash: str,
     jdump(result, f"results/difficulty_classification/{response_dir}/grading_output/{qhash}.json")
     logging.info(f"Finished grading example {qhash}")
 
-def do_grading(response_dir: str = "Qwen_Qwen2_5_32B_Instruct"):
+def do_grading(response_dir: str = "Qwen_Qwen2_5_1.5B_Instruct"):
     true_qhashes = [question_hash(q) for q in load_dataset("qfq/train")['train']['question']]
     jsons = glob(f"results/difficulty_classification/{response_dir}/grading_input/*.json")
     qhashes = [os.path.basename(json).split(".")[0] for json in jsons]
@@ -104,13 +104,13 @@ def do_grading(response_dir: str = "Qwen_Qwen2_5_32B_Instruct"):
     with ProcessPoolExecutor() as executor:
         executor.map(_process_example_grading_partial, qhashes)
 
-def upload_grading(response_dir: str = "Qwen_Qwen2_5_32B_Instruct"):
-    if response_dir == "Qwen_Qwen2_5_32B_Instruct":
-        col_name = "isqwen32bcorrect"
+def upload_grading(response_dir: str = "Qwen_Qwen2_5_1.5B_Instruct"):
+    if response_dir == "Qwen_Qwen2_5_1.5B_Instruct":
+        col_name = "isqwen1.5bcorrect"
     elif response_dir == "Qwen_Qwen2_5_7B_Instruct":
         col_name = "isqwen7bcorrect"
-    elif response_dir == "Qwen_QwQ_32B_Preview":
-        col_name = "isqwqcorrect"
+    elif response_dir == "Qwen_QwQ_1.5B_Preview":
+        col_name = "isqwq1.5bcorrect"
     elif response_dir == "genmini":
         col_name = "isgenminicorrect"
     else:
@@ -162,7 +162,7 @@ def upload_domain():
 
 def upload_length():
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-32B-Instruct")
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
     genmini = load_dataset("qfq/genminiall")['train']
     def _compute_length(example):
         tokens = tokenizer.encode(example['thinking_trajectories'][0])
@@ -190,6 +190,6 @@ if __name__ == "__main__":
     upload_grading("genmini")
     do_grading("Qwen_Qwen2_5_7B_Instruct")
     upload_grading("Qwen_Qwen2_5_7B_Instruct")
-    do_grading("Qwen_Qwen2_5_32B_Instruct")
-    upload_grading("Qwen_Qwen2_5_32B_Instruct")
+    do_grading("Qwen_Qwen2_5_1.5B_Instruct")
+    upload_grading("Qwen_Qwen2_5_1.5B_Instruct")
     upload_length()

@@ -12,7 +12,7 @@ from transformers import TrainingArguments
 
 @dataclass
 class TrainingConfig:
-    model_name: str = field(default="Qwen/Qwen2.5-32B-Instruct")
+    model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct")
     block_size: int = field(default=32768)
     wandb_project: Optional[str] = field(default="s1-agent")
     wandb_entity: Optional[str] = field(default="openmodels-org")

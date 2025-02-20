@@ -15,14 +15,14 @@ from data.utils.io_utils import question_hash, jdump, jload
 
 @dataclass
 class DataModuleConfigs:
-    model_name: str = field(default="Qwen/Qwen2.5-32B-Instruct", metadata={'help': 'Model name'})
+    model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct", metadata={'help': 'Model name'})
     shard_index: int = field(default=0, metadata={'help': 'Shard index'})
 
 def shard_question(chunk_size: int=10_000):
     questions = load_dataset("qfq/train")['train']['question']
     for i in range(0, len(questions), chunk_size):
         shard = questions[i:i+chunk_size]
-        jdump(shard,f"results/difficulty_classification/qwen32b_instruct_inference/shard_{i//chunk_size}_input.json")
+        jdump(shard,f"results/difficulty_classification/qwen1.5b_instruct_inference/shard_{i//chunk_size}_input.json")
 
 def _qwen_forward(
     prompts: Sequence[str],
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     difficulty_classification(**asdict(parser.parse_args_into_dataclasses()[0]))
 
     assemble_output("Qwen/Qwen2.5-7B-Instruct")
-    assemble_output("Qwen/Qwen2.5-32B-Instruct")
+    assemble_output("Qwen/Qwen2.5-1.5B-Instruct")
     assemble_output_gemini()

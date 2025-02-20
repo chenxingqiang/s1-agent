@@ -39,7 +39,7 @@ def mathcot_sft(upload_data_path: str, num_proc: int,
     dataset = load_dataset(download_data_path, download_mode='force_redownload')
     if 'train' in dataset:
         dataset = dataset['train']
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-32B-Instruct")
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
     process_example_map = partial(process_cot_example, tokenizer=tokenizer)
     dataset = dataset.map(
         process_example_map,

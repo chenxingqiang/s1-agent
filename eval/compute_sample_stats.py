@@ -33,7 +33,7 @@ correct = []
 
 if tokens:
     from transformers import AutoTokenizer
-    tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-32B-Instruct")
+    tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
 
 with open(path) as f: # JSONL file
     for line in f:

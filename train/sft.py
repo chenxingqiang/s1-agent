@@ -14,9 +14,9 @@ from transformers import TrainingArguments
 class TrainingConfig:
     model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct")
     block_size: int = field(default=2048)
-    wandb_project: Optional[str] = field(default="s1-agent")
+    wandb_project: Optional[str] = field(default="S1-Qwen2.5-1.5B-Instruct")
     wandb_entity: Optional[str] = field(default=None)
-    use_wandb: bool = field(default=False)
+    use_wandb: bool = field(default=True)
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
     custom_fsdp_config: dict = field(

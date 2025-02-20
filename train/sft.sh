@@ -17,7 +17,7 @@ push_to_hub=false
 
 torchrun --nproc-per-node ${gpu_count} --master_port 12345 \
     train/sft.py \
-    --use_wandb=false \
+    --use_wandb=True \
     --block_size=2048 \
     --per_device_train_batch_size=1 \
     --per_device_eval_batch_size=1 \

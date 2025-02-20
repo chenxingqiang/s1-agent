@@ -26,7 +26,7 @@ class TrainingConfig:
             "xla": False,
             "xla_fsdp_v2": False,
             "xla_fsdp_grad_ckpt": False,
-            "activation_checkpointing": True,
+            "activation_checkpointing": False,
             "limit_all_gathers": True,
         }
     )
@@ -85,14 +85,23 @@ def train():
         # Use a token that is never used
         tokenizer.pad_token = "<|fim_pad|>"
 
-    # Only compute loss over assistant responses
-    # Verified that it precisely starts where the thinking tokens start and ends with the first pad token
-    # via labels being set to -100
+    # Add padding configuration
+    args.padding = True  # Enable padding
+    args.pad_to_multiple_of = 8  # Ensure consistent sequence lengths
+    
+    # Ensure max_length is set and consistent
+    args.max_length = config.block_size
+    args.truncation = True  # Enable truncation
+    
+    # Update data collator settings
     collator = trl.DataCollatorForCompletionOnlyLM(
         instruction_template=instruction_template,
         response_template=response_template,
         tokenizer=tokenizer,
-        mlm=False
+        mlm=False,
+        padding=True,
+        max_length=config.block_size,
+        pad_to_multiple_of=8
     )
     args.dataset_text_field = 'text'
     args.max_seq_length = config.block_size

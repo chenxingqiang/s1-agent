@@ -26,12 +26,8 @@ class TrainingConfig:
             "xla": False,
             "xla_fsdp_v2": False,
             "xla_fsdp_grad_ckpt": False,
-            "activation_checkpointing": True,
+            "activation_checkpointing": False,
             "limit_all_gathers": True,
-            "cpu_ram_efficient_loading": True,
-            "forward_prefetch": True,
-            "backward_prefetch": "BACKWARD_PRE",
-            "use_orig_params": True,
         }
     )
 
@@ -76,8 +72,15 @@ def train():
 
     dataset = load_dataset(config.train_file_path)
 
-    # setting up trainer
-    tokenizer = transformers.AutoTokenizer.from_pretrained(config.model_name, use_fast=True)
+    # Configure tokenizer with strict length control
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        config.model_name,
+        use_fast=True,
+        model_max_length=config.block_size,
+        padding_side="right",
+        truncation_side="right",
+    )
+    
     if "Llama" in config.model_name:
         instruction_template = "<|start_header_id|>user<|end_header_id|>"
         response_template = "<|start_header_id|>assistant<|end_header_id|>\n\n"
@@ -87,11 +90,29 @@ def train():
         response_template = "<|im_start|>assistant\n"
         tokenizer.pad_token = "<|fim_pad|>"
 
-    # Configure tokenizer padding
-    tokenizer.padding_side = "right"
+    # Ensure tokenizer configuration
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
+    tokenizer.padding_side = "right"
     
-    # Update data collator settings - remove unsupported parameters
+    # Process dataset with fixed length
+    def preprocess_function(examples):
+        return tokenizer(
+            examples['text'],
+            truncation=True,
+            max_length=config.block_size,
+            padding="max_length",
+            return_tensors=None,
+        )
+
+    # Process dataset
+    tokenized_dataset = dataset.map(
+        preprocess_function,
+        batched=True,
+        remove_columns=dataset["train"].column_names,
+        desc="Tokenizing dataset",
+    )
+
+    # Update data collator settings
     collator = trl.DataCollatorForCompletionOnlyLM(
         instruction_template=instruction_template,
         response_template=response_template,
@@ -106,8 +127,8 @@ def train():
     # Create trainer with tokenizer
     trainer = trl.SFTTrainer(
         model,
-        train_dataset=dataset['train'],
-        eval_dataset=dataset['test'] if 'test' in dataset else dataset['train'],
+        train_dataset=tokenized_dataset['train'],
+        eval_dataset=tokenized_dataset['test'] if 'test' in tokenized_dataset else tokenized_dataset['train'],
         args=args,
         data_collator=collator,
         tokenizer=tokenizer,

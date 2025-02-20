@@ -77,21 +77,15 @@ def train():
     if "Llama" in config.model_name:
         instruction_template = "<|start_header_id|>user<|end_header_id|>"
         response_template = "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        # Use a token that is never used
         tokenizer.pad_token = "<|reserved_special_token_5|>"
     elif "Qwen" in config.model_name:
         instruction_template = "<|im_start|>user"
         response_template = "<|im_start|>assistant\n"
-        # Use a token that is never used
         tokenizer.pad_token = "<|fim_pad|>"
 
-    # Add padding configuration
-    args.padding = True  # Enable padding
-    args.pad_to_multiple_of = 8  # Ensure consistent sequence lengths
-    
-    # Ensure max_length is set and consistent
-    args.max_length = config.block_size
-    args.truncation = True  # Enable truncation
+    # Configure tokenizer padding
+    tokenizer.padding_side = "right"
+    tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
     
     # Update data collator settings
     collator = trl.DataCollatorForCompletionOnlyLM(
@@ -103,14 +97,19 @@ def train():
         max_length=config.block_size,
         pad_to_multiple_of=8
     )
+
+    # Set dataset configuration
     args.dataset_text_field = 'text'
     args.max_seq_length = config.block_size
+
+    # Create trainer
     trainer = trl.SFTTrainer(
         model,
         train_dataset=dataset['train'],
         eval_dataset=dataset['test'] if 'test' in dataset else dataset['train'],
         args=args,
-        data_collator=collator
+        data_collator=collator,
+        tokenizer=tokenizer,
     )
 
     trainer.train()

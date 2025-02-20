@@ -18,8 +18,7 @@ class TrainingConfig:
     wandb_entity: Optional[str] = field(default="openmodels-org")
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
-    gradient_checkpointing: bool = field(default=True)
-    gradient_checkpointing_kwargs: dict = field(
+    custom_gradient_checkpointing_kwargs: dict = field(
         default_factory=lambda: {"use_reentrant": False}
     )
     custom_fsdp_config: dict = field(
@@ -42,6 +41,10 @@ def train():
     # parsing input
     parser = transformers.HfArgumentParser((TrainingConfig, trl.SFTConfig))
     config, args = parser.parse_args_into_dataclasses()
+    
+    # Enable gradient checkpointing and update configs
+    args.gradient_checkpointing = True
+    args.gradient_checkpointing_kwargs = config.custom_gradient_checkpointing_kwargs
     
     # Update args.fsdp_config with our custom config
     if hasattr(args, 'fsdp_config'):

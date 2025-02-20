@@ -87,22 +87,19 @@ def train():
     tokenizer.padding_side = "right"
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
     
-    # Update data collator settings
+    # Update data collator settings - remove unsupported parameters
     collator = trl.DataCollatorForCompletionOnlyLM(
         instruction_template=instruction_template,
         response_template=response_template,
         tokenizer=tokenizer,
         mlm=False,
-        padding=True,
-        max_length=config.block_size,
-        pad_to_multiple_of=8
     )
 
     # Set dataset configuration
     args.dataset_text_field = 'text'
     args.max_seq_length = config.block_size
 
-    # Create trainer
+    # Create trainer with tokenizer
     trainer = trl.SFTTrainer(
         model,
         train_dataset=dataset['train'],

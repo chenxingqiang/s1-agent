@@ -56,4 +56,4 @@ if __name__ == "__main__":
     if args.local_dir:
         new_dataset.save_to_disk(args.local_dir)
     else:
-        new_dataset.push_to_hub("simplescaling/s1K")
+        new_dataset.push_to_hub("xingqiang/s1K")

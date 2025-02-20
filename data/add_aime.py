@@ -32,4 +32,4 @@ if __name__ == "__main__":
             aime_dataset.append(result)
     aime_dataset = Dataset.from_list(aime_dataset)
     new_dataset = concatenate_datasets([dataset, aime_dataset])
-    new_dataset.push_to_hub("simplescaling/s1K")
+    new_dataset.push_to_hub("xingqiang/s1K")

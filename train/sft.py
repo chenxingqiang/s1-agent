@@ -8,15 +8,27 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 from datasets import load_dataset, concatenate_datasets, DatasetDict
 import transformers
 import trl
+from transformers import TrainingArguments
 
 @dataclass
 class TrainingConfig:
     model_name: str = field(default="Qwen/Qwen2.5-32B-Instruct")
     block_size: int = field(default=32768)
-    wandb_project: Optional[str] = field(default="s1")
-    wandb_entity: Optional[str] = field(default="hashimoto-group")
+    wandb_project: Optional[str] = field(default="s1-agent")
+    wandb_entity: Optional[str] = field(default="openmodels-org")
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
+    gradient_checkpointing: bool = field(default=True)
+    gradient_checkpointing_kwargs: dict = field(default={"use_reentrant": False})
+    fsdp_config: dict = field(default={
+        "transformer_layer_cls_to_wrap": ["Qwen2DecoderLayer"],
+        "min_num_params": 0,
+        "xla": False,
+        "xla_fsdp_v2": False,
+        "xla_fsdp_grad_ckpt": False,
+        "activation_checkpointing": True,
+        "limit_all_gathers": True,
+    })
 
     def __post_init__(self):
         os.environ['WANDB_PROJECT'] = self.wandb_project
@@ -72,6 +84,12 @@ def train():
         eval_dataset=dataset['test'] if 'test' in dataset else dataset['train'],
         args=args,
         data_collator=collator
+    )
+
+    training_args = TrainingArguments(
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=4,
+        max_grad_norm=0.5,
     )
 
     trainer.train()

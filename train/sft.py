@@ -15,7 +15,8 @@ class TrainingConfig:
     model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct")
     block_size: int = field(default=32768)
     wandb_project: Optional[str] = field(default="s1-agent")
-    wandb_entity: Optional[str] = field(default="openmodels-org")
+    wandb_entity: Optional[str] = field(default=None)
+    use_wandb: bool = field(default=False)
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
     custom_fsdp_config: dict = field(
@@ -31,8 +32,17 @@ class TrainingConfig:
     )
 
     def __post_init__(self):
-        os.environ['WANDB_PROJECT'] = self.wandb_project
-        os.environ['WANDB_ENTITY'] = self.wandb_entity
+        if self.use_wandb:
+            if not self.wandb_entity:
+                # Try to get from environment variable
+                self.wandb_entity = os.environ.get('WANDB_ENTITY')
+            if self.wandb_project:
+                os.environ['WANDB_PROJECT'] = self.wandb_project
+            if self.wandb_entity:
+                os.environ['WANDB_ENTITY'] = self.wandb_entity
+        else:
+            # Disable wandb
+            os.environ['WANDB_DISABLED'] = 'true'
 
 def train():
     # parsing input

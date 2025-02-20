@@ -1,7 +1,9 @@
 # Reference Running: bash train/sft.sh
 # {'train_runtime': 5268.8407, 'train_samples_per_second': 0.949, 'train_steps_per_second': 0.119, 'train_loss': 0.1172730620391667, 'epoch': 5.0}
-uid="$(date +%Y%m%d_%H%M%S)"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export WANDB_ENTITY="chen-xing-qiang"  # Replace with your wandb username or team name
+
+uid="$(date +%Y%m%d_%H%M%S)"
 base_model="Qwen/Qwen2.5-1.5B-Instruct"
 lr=1e-5
 min_lr=0
@@ -15,6 +17,7 @@ push_to_hub=false
 
 torchrun --nproc-per-node ${gpu_count} --master_port 12345 \
     train/sft.py \
+    --use_wandb=false \
     --block_size=32768 \
     --per_device_train_batch_size=${micro_batch_size} \
     --per_device_eval_batch_size=${micro_batch_size} \

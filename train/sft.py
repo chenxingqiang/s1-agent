@@ -8,14 +8,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 from datasets import load_dataset, concatenate_datasets, DatasetDict
 import transformers
 import trl
-from transformers import TrainingArguments
 
 @dataclass
 class TrainingConfig:
     model_name: str = field(default="Qwen/Qwen2.5-1.5B-Instruct")
     block_size: int = field(default=2048)
     wandb_project: Optional[str] = field(default="S1-Qwen2.5-1.5B-Instruct")
-    wandb_entity: Optional[str] = field(default="chen-xing-qiang")
+    wandb_entity: Optional[str] = field(default="openmodels")
     use_wandb: bool = field(default=True)
     train_file_path: Optional[str] = field(default='simplescaling/s1K_tokenized')
     dagger: bool = field(default=False)
@@ -34,14 +33,10 @@ class TrainingConfig:
     def __post_init__(self):
         if self.use_wandb:
             if not self.wandb_entity:
-                # Try to get from environment variable
-                self.wandb_entity = os.environ.get('WANDB_ENTITY')
-            if self.wandb_project:
-                os.environ['WANDB_PROJECT'] = self.wandb_project
-            if self.wandb_entity:
-                os.environ['WANDB_ENTITY'] = self.wandb_entity
+                self.wandb_entity = os.environ.get('WANDB_ENTITY', 'openmodels')
+            os.environ['WANDB_PROJECT'] = self.wandb_project
+            os.environ['WANDB_ENTITY'] = self.wandb_entity
         else:
-            # Disable wandb
             os.environ['WANDB_DISABLED'] = 'true'
 
 def train():

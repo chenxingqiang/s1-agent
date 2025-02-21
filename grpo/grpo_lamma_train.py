@@ -206,34 +206,18 @@ $${result}$$
 - Mathematical Justification: $${confidence_math}$$
 """
 
-def extract_xml_answer(text: str) -> str:
-    try:
-        # First try to extract the numerical result
-        if "<numerical_result>" in text and "</numerical_result>" in text:
-            answer = text.split("<numerical_result>")[-1]
-            answer = answer.split("</numerical_result>")[0]
-            return answer.strip()
-        
-        # Fall back to the entire final_answer section if needed
-        answer = text.split("<final_answer>")[-1]
-        answer = answer.split("</final_answer>")[0]
-        return answer.strip()
-    except:
-        # Fallback for malformed XML
-        return text.strip()
-
-# Add validation function for mathematical format
 def validate_math_solution(text: str) -> bool:
     required_sections = [
-        "<problem_analysis>",
-        "<solution_approach>",
-        "<mathematical_steps>",
-        "<verification>",
-        "<final_answer>"
+        "# Problem Analysis",
+        "## Given Information",
+        "## Assumptions", 
+        "# Solution Approach",
+        "# Mathematical Steps",
+        "# Verification",
+        "# Final Answer"
     ]
     return all(section in text for section in required_sections)
 
-# Add reward function for mathematical structure
 def math_structure_reward_func(completions, **kwargs) -> list[float]:
     responses = [completion[0]["content"] for completion in completions]
     rewards = []
@@ -242,17 +226,37 @@ def math_structure_reward_func(completions, **kwargs) -> list[float]:
         # Check for proper mathematical structure
         if validate_math_solution(response):
             reward += 0.3
-        # Check for steps with equations
-        if "<equation>" in response and "<justification>" in response:
+        # Check for equations
+        if "$$" in response:
             reward += 0.2
-        # Check for verification
-        if "<dimension_check>" in response and "<boundary_check>" in response:
+        # Check for verification sections
+        if "## Dimension Check" in response and "## Boundary Check" in response:
             reward += 0.2
         # Check for proper variable definitions
-        if "<variables>" in response and "<key_concepts>" in response:
+        if "## Variables" in response and "## Key Concepts" in response:
             reward += 0.2
         rewards.append(reward)
     return rewards
+
+def extract_md_answer(text: str) -> str:
+    try:
+        # First try to extract the numerical result
+        if "## Numerical Result" in text:
+            result_section = text.split("## Numerical Result")[1]
+            result = result_section.split("##")[0]
+            # Extract content between $$ if present
+            if "$$" in result:
+                result = result.split("$$")[1]
+            return result.strip()
+        
+        # Fall back to the entire Final Answer section
+        if "# Final Answer" in text:
+            answer_section = text.split("# Final Answer")[1]
+            if "# " in answer_section:
+                answer_section = answer_section.split("# ")[0]
+            return answer_section.strip()
+    except:
+        return text.strip()
 
 def extract_hash_answer(text: str) -> str | None:
     if "####" not in text:
@@ -277,85 +281,101 @@ dataset = get_gsm8k_questions()
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
     q = prompts[0][-1]['content']
-    extracted_responses = [extract_xml_answer(r) for r in responses]
+    extracted_responses = [extract_md_answer(r) for r in responses]
     print('-'*20, f"Question:\n{q}", f"\nAnswer:\n{answer[0]}", f"\nResponse:\n{responses[0]}", f"\nExtracted:\n{extracted_responses[0]}")
     return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
 
 def int_reward_func(completions, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_xml_answer(r) for r in responses]
+    extracted_responses = [extract_md_answer(r) for r in responses]
     return [0.5 if r.isdigit() else 0.0 for r in extracted_responses]
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion follows the exact XML format."""
-    pattern = r"^<solution version=\"1\.0\">\s*" + \
-              r"<problem_analysis>.*?</problem_analysis>\s*" + \
-              r"<solution_approach>.*?</solution_approach>\s*" + \
-              r"<mathematical_steps>.*?</mathematical_steps>\s*" + \
-              r"<verification>.*?</verification>\s*" + \
-              r"<final_answer>.*?</final_answer>\s*" + \
-              r"</solution>\s*$"
+    """Reward function that checks if the completion follows the exact MD format."""
+    pattern = (
+        r"# Problem Analysis\s*"
+        r"## Given Information.*?"
+        r"## Assumptions.*?"
+        r"## Target.*?"
+        r"# Solution Approach\s*"
+        r"## Method.*?"
+        r"## Key Concepts.*?"
+        r"## Variables.*?"
+        r"# Mathematical Steps.*?"
+        r"# Verification\s*"
+        r"## Dimension Check.*?"
+        r"## Boundary Check.*?"
+        r"## Alternative Method.*?"
+        r"# Final Answer\s*"
+        r"## Numerical Result.*?"
+        r"## Interpretation.*?"
+        r"## Confidence Level.*?"
+    )
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r, re.DOTALL) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks for presence of main XML sections in any order."""
-    required_tags = [
-        r"<solution[^>]*>.*</solution>",
-        r"<problem_analysis>.*?</problem_analysis>",
-        r"<solution_approach>.*?</solution_approach>", 
-        r"<mathematical_steps>.*?</mathematical_steps>",
-        r"<verification>.*?</verification>",
-        r"<final_answer>.*?</final_answer>"
+    """Reward function that checks for presence of main MD sections in any order."""
+    required_sections = [
+        r"# Problem Analysis",
+        r"# Solution Approach",
+        r"# Mathematical Steps",
+        r"# Verification",
+        r"# Final Answer"
     ]
     responses = [completion[0]["content"] for completion in completions]
     rewards = []
     for response in responses:
-        matches = [re.search(pattern, response, re.DOTALL) is not None for pattern in required_tags]
-        # Partial credit for each matched section
-        reward = 0.5 * (sum(matches) / len(required_tags))
+        matches = [re.search(pattern, response, re.DOTALL) is not None 
+                  for pattern in required_sections]
+        reward = 0.5 * (sum(matches) / len(required_sections))
         rewards.append(reward)
     return rewards
 
-def count_xml(text) -> float:
+def count_md(text) -> float:
     count = 0.0
-    # Check opening and closing tags for each main section
-    if text.count("<problem_analysis>") == 1:
-        count += 0.125
-    if text.count("</problem_analysis>") == 1:
+    main_sections = [
+        ("# Problem Analysis", 0.125),
+        ("# Solution Approach", 0.125),
+        ("# Mathematical Steps", 0.125),
+        ("# Verification", 0.125),
+        ("# Final Answer", 0.125)
+    ]
+    
+    for section, weight in main_sections:
+        if section in text:
+            count += weight
+    
+    # Check for mathematical elements
+    if "$$" in text:
         count += 0.125
     
-    if text.count("<solution_approach>") == 1:
-        count += 0.125
-    if text.count("</solution_approach>") == 1:
-        count += 0.125
+    # Check for subsections
+    subsections = [
+        "## Given Information",
+        "## Assumptions",
+        "## Method",
+        "## Variables",
+        "## Dimension Check",
+        "## Boundary Check",
+        "## Numerical Result"
+    ]
+    for subsection in subsections:
+        if subsection in text:
+            count += 0.025
     
-    if text.count("<mathematical_steps>") == 1:
-        count += 0.125
-    if text.count("</mathematical_steps>") == 1:
-        count += 0.125
+    # Penalize content after Final Answer
+    if "# Final Answer" in text:
+        final_section = text.split("# Final Answer")[1]
+        if "# " in final_section:
+            count -= 0.001 * len(final_section.split("# ")[1])
     
-    if text.count("<verification>") == 1:
-        count += 0.125
-    if text.count("</verification>") == 1:
-        count += 0.125
-    
-    if text.count("<final_answer>") == 1:
-        count += 0.125
-        # Penalize extra content after final_answer
-        count -= len(text.split("</final_answer>")[-1])*0.001
-    if text.count("</final_answer>") == 1:
-        count += 0.125
-        # Additional penalty for content after the very last closing tag
-        count -= (len(text.split("</final_answer>")[-1]) - 1)*0.001
-    
-    return count
-
+    return min(count, 1.0)
 
 def xmlcount_reward_func(completions, **kwargs) -> list[float]:
     contents = [completion[0]["content"] for completion in completions]
-    return [count_xml(c) for c in contents]
+    return [count_md(c) for c in contents]
 
 """<a name="Train"></a>
 ### Train the model
@@ -367,7 +387,7 @@ from trl import GRPOConfig, GRPOTrainer
 import wandb
 
 # Initialize wandb
-wandb.init(project="openmodels/Llama3.1-8B-R1-Math-Solution", entity="openmodels")
+wandb.init(project="Llama3.1-8B-R1-Math-Solution", entity="openmodels")
 
 # Update training args to enable wandb
 training_args = GRPOConfig(
@@ -393,7 +413,7 @@ training_args = GRPOConfig(
     max_grad_norm = 0.1,
     report_to = "wandb", # Enable Weights & Biases reporting
     output_dir = "outputs/grpo_lamma_train",
-    wandb_project = "openmodels",
+    wandb_project = "Llama3.1-8B-R1-Math-Solution",
     wandb_entity = "openmodels",
     wandb_name = "grpo_lamma_train",
 )

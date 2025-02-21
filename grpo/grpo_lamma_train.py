@@ -83,35 +83,176 @@ import os
 
 # Load and prep dataset
 SYSTEM_PROMPT = """
-Respond in the following format:
-<reasoning>
-...
-</reasoning>
-<planing>
-...
-</planing>
+Provide a structured mathematical solution following this format:
 
-<answer>
-...
-</answer>
+<solution version="1.0">
+    <problem_analysis>
+        <given_information>
+            [List all given values, conditions, and constraints]
+        </given_information>
+        <assumptions>
+            [State any necessary assumptions]
+        </assumptions>
+        <target>
+            [Clearly state what needs to be solved/proven]
+        </target>
+    </problem_analysis>
+
+    <solution_approach>
+        <method>
+            [Name and justify the chosen solution method]
+        </method>
+        <key_concepts>
+            [List relevant mathematical concepts/formulas]
+        </key_concepts>
+        <variables>
+            [Define all variables used]
+        </variables>
+    </solution_approach>
+
+    <mathematical_steps>
+        <step number="1">
+            [Initial step with explanation]
+            <equation>{equation_1}</equation>
+            <justification>{justification_1}</justification>
+        </step>
+        <step number="2">
+            [Next step with explanation]
+            <equation>{equation_2}</equation>
+            <justification>{justification_2}</justification>
+        </step>
+        <!-- Additional steps as needed -->
+    </mathematical_steps>
+
+    <verification>
+        <dimension_check>
+            [Verify units/dimensions are consistent]
+        </dimension_check>
+        <boundary_check>
+            [Verify answer makes sense within problem constraints]
+        </boundary_check>
+        <alternative_method>
+            [Optional: Verify using different approach]
+        </alternative_method>
+    </verification>
+
+    <final_answer>
+        <numerical_result>
+            [Final calculated value with units]
+        </numerical_result>
+        <interpretation>
+            [Explain what this result means in context]
+        </interpretation>
+        <confidence_level>
+            [High/Medium/Low with mathematical justification]
+        </confidence_level>
+    </final_answer>
+</solution>
+
+Note:
+- Show all mathematical steps clearly
+- Include units in calculations
+- Justify each significant step
+- Verify your answer makes sense
+- Use proper mathematical notation
+- Check boundary conditions
 """
 
-XML_COT_FORMAT = """\
-<reasoning>
-{reasoning}
-</reasoning>
-<planing>
-{planing}
-</planing>
-<answer>
-{answer}
-</answer>
+MATH_MD_FORMAT = """\
+# Problem Analysis
+## Given Information
+{givens}
+
+## Assumptions
+{assumptions}
+
+## Target
+$${target}$$
+
+# Solution Approach
+## Method
+{method}
+
+## Key Concepts
+- Mathematical Concepts:
+$${concepts}$$
+
+## Variables
+Let:
+$${variables}$$
+
+# Mathematical Steps
+{steps}
+
+# Verification
+## Dimension Check
+$${dimensions}$$
+
+## Boundary Check
+$${bounds}$$
+
+## Alternative Method
+$${alternative}$$
+
+# Final Answer
+## Numerical Result
+$${result}$$
+
+## Interpretation
+{interpretation}
+
+## Confidence Level
+{confidence}
+- Mathematical Justification: $${confidence_math}$$
 """
 
 def extract_xml_answer(text: str) -> str:
-    answer = text.split("<answer>")[-1]
-    answer = answer.split("</answer>")[0]
-    return answer.strip()
+    try:
+        # First try to extract the numerical result
+        if "<numerical_result>" in text and "</numerical_result>" in text:
+            answer = text.split("<numerical_result>")[-1]
+            answer = answer.split("</numerical_result>")[0]
+            return answer.strip()
+        
+        # Fall back to the entire final_answer section if needed
+        answer = text.split("<final_answer>")[-1]
+        answer = answer.split("</final_answer>")[0]
+        return answer.strip()
+    except:
+        # Fallback for malformed XML
+        return text.strip()
+
+# Add validation function for mathematical format
+def validate_math_solution(text: str) -> bool:
+    required_sections = [
+        "<problem_analysis>",
+        "<solution_approach>",
+        "<mathematical_steps>",
+        "<verification>",
+        "<final_answer>"
+    ]
+    return all(section in text for section in required_sections)
+
+# Add reward function for mathematical structure
+def math_structure_reward_func(completions, **kwargs) -> list[float]:
+    responses = [completion[0]["content"] for completion in completions]
+    rewards = []
+    for response in responses:
+        reward = 0.0
+        # Check for proper mathematical structure
+        if validate_math_solution(response):
+            reward += 0.3
+        # Check for steps with equations
+        if "<equation>" in response and "<justification>" in response:
+            reward += 0.2
+        # Check for verification
+        if "<dimension_check>" in response and "<boundary_check>" in response:
+            reward += 0.2
+        # Check for proper variable definitions
+        if "<variables>" in response and "<key_concepts>" in response:
+            reward += 0.2
+        rewards.append(reward)
+    return rewards
 
 def extract_hash_answer(text: str) -> str | None:
     if "####" not in text:
@@ -146,37 +287,71 @@ def int_reward_func(completions, **kwargs) -> list[float]:
     return [0.5 if r.isdigit() else 0.0 for r in extracted_responses]
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
+    """Reward function that checks if the completion follows the exact XML format."""
+    pattern = r"^<solution version=\"1\.0\">\s*" + \
+              r"<problem_analysis>.*?</problem_analysis>\s*" + \
+              r"<solution_approach>.*?</solution_approach>\s*" + \
+              r"<mathematical_steps>.*?</mathematical_steps>\s*" + \
+              r"<verification>.*?</verification>\s*" + \
+              r"<final_answer>.*?</final_answer>\s*" + \
+              r"</solution>\s*$"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
+    matches = [re.match(pattern, r, re.DOTALL) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    """Reward function that checks for presence of main XML sections in any order."""
+    required_tags = [
+        r"<solution[^>]*>.*</solution>",
+        r"<problem_analysis>.*?</problem_analysis>",
+        r"<solution_approach>.*?</solution_approach>", 
+        r"<mathematical_steps>.*?</mathematical_steps>",
+        r"<verification>.*?</verification>",
+        r"<final_answer>.*?</final_answer>"
+    ]
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
+    rewards = []
+    for response in responses:
+        matches = [re.search(pattern, response, re.DOTALL) is not None for pattern in required_tags]
+        # Partial credit for each matched section
+        reward = 0.5 * (sum(matches) / len(required_tags))
+        rewards.append(reward)
+    return rewards
 
 def count_xml(text) -> float:
     count = 0.0
-    if text.count("<reasoning>\n") == 1:
+    # Check opening and closing tags for each main section
+    if text.count("<problem_analysis>") == 1:
         count += 0.125
-    if text.count("\n</reasoning>\n") == 1:
+    if text.count("</problem_analysis>") == 1:
         count += 0.125
     
-    if text.count("<planning>\n") == 1:
+    if text.count("<solution_approach>") == 1:
         count += 0.125
-    if text.count("\n</planning>\n") == 1:
+    if text.count("</solution_approach>") == 1:
         count += 0.125
-    if text.count("\n<answer>\n") == 1:
+    
+    if text.count("<mathematical_steps>") == 1:
         count += 0.125
-        count -= len(text.split("\n</answer>\n")[-1])*0.001
-    if text.count("\n</answer>") == 1:
+    if text.count("</mathematical_steps>") == 1:
         count += 0.125
-        count -= (len(text.split("\n</answer>")[-1]) - 1)*0.001
+    
+    if text.count("<verification>") == 1:
+        count += 0.125
+    if text.count("</verification>") == 1:
+        count += 0.125
+    
+    if text.count("<final_answer>") == 1:
+        count += 0.125
+        # Penalize extra content after final_answer
+        count -= len(text.split("</final_answer>")[-1])*0.001
+    if text.count("</final_answer>") == 1:
+        count += 0.125
+        # Additional penalty for content after the very last closing tag
+        count -= (len(text.split("</final_answer>")[-1]) - 1)*0.001
+    
     return count
+
 
 def xmlcount_reward_func(completions, **kwargs) -> list[float]:
     contents = [completion[0]["content"] for completion in completions]
@@ -189,6 +364,12 @@ Now set up GRPO Trainer and all configurations!
 """
 
 from trl import GRPOConfig, GRPOTrainer
+import wandb
+
+# Initialize wandb
+wandb.init(project="openmodels/Llama3.1-8B-R1-Math-Solution", entity="openmodels")
+
+# Update training args to enable wandb
 training_args = GRPOConfig(
     use_vllm = True, # use vLLM for fast inference!
     learning_rate = 5e-6,
@@ -210,8 +391,11 @@ training_args = GRPOConfig(
     max_steps = 250,
     save_steps = 250,
     max_grad_norm = 0.1,
-    report_to = "none", # Can use Weights & Biases
-    output_dir = "outputs",
+    report_to = "wandb", # Enable Weights & Biases reporting
+    output_dir = "outputs/grpo_lamma_train",
+    wandb_project = "openmodels",
+    wandb_entity = "openmodels",
+    wandb_name = "grpo_lamma_train",
 )
 
 """And let's run the trainer! If you scroll up, you'll see a table of rewards. The goal is to see the `reward` column increase!
@@ -235,11 +419,29 @@ trainer = GRPOTrainer(
         strict_format_reward_func,
         int_reward_func,
         correctness_reward_func,
+        math_structure_reward_func,
     ],
     args = training_args,
     train_dataset = dataset,
 )
 trainer.train()
+
+# Push to HuggingFace in multiple formats
+if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-R1-Math-Solution", tokenizer, save_method = "merged_16bit", token = os.environ.get("HF_TOKEN"))
+
+# Save to GGUF first before 4-bit
+if True: model.push_to_hub_gguf(
+    "xingqiang/Llama3.1-8B-R1-Math-Solution",
+    tokenizer,
+    quantization_method = ["q4_k_m", "q8_0", "q5_k_m"],
+    token = os.environ.get("HF_TOKEN"),
+)
+
+# Now save 4-bit with forced flag
+if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-R1-Math-Solution", tokenizer, save_method = "merged_4bit_forced", token = os.environ.get("HF_TOKEN"))
+
+# Finish wandb run
+wandb.finish()
 
 """<a name="Inference"></a>
 ### Inference
@@ -298,16 +500,16 @@ We also support saving to `float16` directly. Select `merged_16bit` for float16 
 """
 
 # Merge to 16bit
-if True: model.save_pretrained_merged("Llama3.1-8B-GRPO-Planing-16bit", tokenizer, save_method = "merged_16bit",)
-if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-GRPO-Planing", tokenizer, save_method = "merged_16bit", token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_merged("Llama3.1-8B-R1-Math-Solution-16bit", tokenizer, save_method = "merged_16bit",)
+if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-R1-Math-Solution", tokenizer, save_method = "merged_16bit", token = os.environ.get("HF_TOKEN"))
 
 # Merge to 4bit
-if True: model.save_pretrained_merged("Llama3.1-8B-GRPO-Planing-4bit", tokenizer, save_method = "merged_4bit",)
-if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-GRPO-Planing", tokenizer, save_method = "merged_4bit", token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_merged("Llama3.1-8B-R1-Math-Solution-4bit", tokenizer, save_method = "merged_4bit",)
+if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-R1-Math-Solution", tokenizer, save_method = "merged_4bit", token = os.environ.get("HF_TOKEN"))
 
 # Just LoRA adapters
-if True: model.save_pretrained_merged("Llama3.1-8B-GRPO-Planing-LoRA", tokenizer, save_method = "lora",)
-if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-GRPO-Planing-LoRA", tokenizer, save_method = "lora", token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_merged("Llama3.1-8B-R1-Math-Solution-LoRA", tokenizer, save_method = "lora",)
+if True: model.push_to_hub_merged("xingqiang/Llama3.1-8B-R1-Math-Solution-LoRA", tokenizer, save_method = "lora", token = os.environ.get("HF_TOKEN"))
 
 """### GGUF / llama.cpp Conversion
 To save to `GGUF` / `llama.cpp`, we support it natively now! We clone `llama.cpp` and we default save it to `q8_0`. We allow all methods like `q4_k_m`. Use `save_pretrained_gguf` for local saving and `push_to_hub_gguf` for uploading to HF.
@@ -321,23 +523,21 @@ Some supported quant methods (full list on our [Wiki page](https://github.com/un
 """
 
 # Save to 8bit Q8_0
-if True: model.save_pretrained_gguf("Llama3.1-8B-GRPO-Planing-8bit", tokenizer,)
-# Remember to go to https://huggingface.co/settings/tokens for a token!
-# And change hf to your username!
-if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-GRPO-Planing-8bit", tokenizer, token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_gguf("Llama3.1-8B-R1-Math-Solution-8bit", tokenizer,)
+if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-R1-Math-Solution-8bit", tokenizer, token = os.environ.get("HF_TOKEN"))
 
 # Save to 16bit GGUF
-if True: model.save_pretrained_gguf("Llama3.1-8B-GRPO-Planing-16bit", tokenizer, quantization_method = "f16")
-if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-GRPO-Planing-16bit", tokenizer, quantization_method = "f16", token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_gguf("Llama3.1-8B-R1-Math-Solution-16bit", tokenizer, quantization_method = "f16")
+if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-R1-Math-Solution-16bit", tokenizer, quantization_method = "f16", token = os.environ.get("HF_TOKEN"))
 
 # Save to q4_k_m GGUF
-if True: model.save_pretrained_gguf("Llama3.1-8B-GRPO-Planing-q4_k_m", tokenizer, quantization_method = "q4_k_m")
-if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-GRPO-Planing-q4_k_m", tokenizer, quantization_method = "q4_k_m", token = os.environ.get("HF_TOKEN"))
+if True: model.save_pretrained_gguf("Llama3.1-8B-R1-Math-Solution-q4_k_m", tokenizer, quantization_method = "q4_k_m")
+if True: model.push_to_hub_gguf("xingqiang/Llama3.1-8B-R1-Math-Solution-q4_k_m", tokenizer, quantization_method = "q4_k_m", token = os.environ.get("HF_TOKEN"))
 
 # Save to multiple GGUF options - much faster if you want multiple!
 if True:
     model.push_to_hub_gguf(
-        "xingqiang/Llama3.1-8B-GRPO-Planing", # Change hf to your username!
+        "xingqiang/Llama3.1-8B-R1-Math-Solution", # Change hf to your username!
         tokenizer,
         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
         token = os.environ.get("HF_TOKEN"),
@@ -362,3 +562,32 @@ Some other links:
 </div>
 
 """
+
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+import itertools
+
+import tqdm
+
+import torch
+import torch.nn.functional as F
+from torch.utils.data.distributed import DistributedSampler
+
+import torch._inductor.config
+import torch._dynamo.config
+
+torch._inductor.config.coordinate_descent_tuning = True
+torch._inductor.config.triton.unique_kernel_names = True
+torch._inductor.config.fx_graph_cache = True  # Experimental feature to reduce compilation times, will be on by default in future
+
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+import wandb
+
+# support running without installing as a package
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))

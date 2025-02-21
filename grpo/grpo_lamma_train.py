@@ -391,7 +391,7 @@ wandb.init(project="Llama3.1-8B-R1-Math-Solution", entity="openmodels")
 
 # Update training args to enable wandb
 training_args = GRPOConfig(
-    use_vllm = True, # use vLLM for fast inference!
+    use_vllm = True,
     learning_rate = 5e-6,
     adam_beta1 = 0.9,
     adam_beta2 = 0.99,
@@ -403,19 +403,15 @@ training_args = GRPOConfig(
     bf16 = is_bfloat16_supported(),
     fp16 = not is_bfloat16_supported(),
     per_device_train_batch_size = 1,
-    gradient_accumulation_steps = 1, # Increase to 4 for smoother training
-    num_generations = 6, # Decrease if out of memory
+    gradient_accumulation_steps = 1,
+    num_generations = 6,
     max_prompt_length = 256,
     max_completion_length = 200,
-    # num_train_epochs = 1, # Set to 1 for a full training run
     max_steps = 250,
     save_steps = 250,
     max_grad_norm = 0.1,
-    report_to = "wandb", # Enable Weights & Biases reporting
-    output_dir = "outputs/grpo_lamma_train",
-    wandb_project = "Llama3.1-8B-R1-Math-Solution",
-    wandb_entity = "openmodels",
-    wandb_name = "grpo_lamma_train",
+    report_to = "wandb",
+    output_dir = "outputs/grpo_lamma_train"
 )
 
 """And let's run the trainer! If you scroll up, you'll see a table of rewards. The goal is to see the `reward` column increase!

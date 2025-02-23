@@ -109,10 +109,10 @@ def upload_grading(response_dir: str = "Qwen_Qwen2_5_1.5B_Instruct"):
         col_name = "isqwen1.5bcorrect"
     elif response_dir == "Qwen_Qwen2_5_7B_Instruct":
         col_name = "isqwen7bcorrect"
-    elif response_dir == "Qwen_QwQ_1.5B_Preview":
-        col_name = "isqwq1.5bcorrect"
-    elif response_dir == "genmini":
-        col_name = "isgenminicorrect"
+    elif response_dir == "Qwen_QwQ_32B_Preview":
+        col_name = "isqwqcorrect"
+    elif response_dir == "gemini":
+        col_name = "isgeminicorrect"
     else:
         raise ValueError(f"Invalid response directory: {response_dir}")
     dataset = load_dataset("qfq/train_featurized")['train']
@@ -162,23 +162,23 @@ def upload_domain():
 
 def upload_length():
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
-    genmini = load_dataset("qfq/genminiall")['train']
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-32B-Instruct")
+    gemini = load_dataset("qfq/geminiall")['train']
     def _compute_length(example):
         tokens = tokenizer.encode(example['thinking_trajectories'][0])
         return dict(len=len(tokens))
-    genmini = genmini.map(_compute_length)
-    genmini_length_dict = {}
-    for example in tqdm(genmini):
-        genmini_length_dict[question_hash(example['question'])] = example['len']
+    gemini = gemini.map(_compute_length)
+    gemini_length_dict = {}
+    for example in tqdm(gemini):
+        gemini_length_dict[question_hash(example['question'])] = example['len']
     dataset = load_dataset("qfq/train_featurized")['train']
     result = []
     for example in tqdm(dataset):
         qhash = question_hash(example['question'])
         length = None
-        if qhash in genmini_length_dict:
-            length = genmini_length_dict[qhash]
-        example['genmini_length'] = length
+        if qhash in gemini_length_dict:
+            length = gemini_length_dict[qhash]
+        example['gemini_length'] = length
         result.append(example)
     dataset = Dataset.from_list(result)
     dataset.push_to_hub("qfq/train_featurized")
@@ -186,8 +186,8 @@ def upload_length():
 if __name__ == "__main__":
     do_domain_classification()
     upload_domain()
-    do_grading("genmini")
-    upload_grading("genmini")
+    do_grading("gemini")
+    upload_grading("gemini")
     do_grading("Qwen_Qwen2_5_7B_Instruct")
     upload_grading("Qwen_Qwen2_5_7B_Instruct")
     do_grading("Qwen_Qwen2_5_1.5B_Instruct")

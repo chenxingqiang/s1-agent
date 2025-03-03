@@ -34,8 +34,8 @@ This repository provides an overview of all resources for the paper ["s1: Simple
 ### Artifacts
 
 - **Paper**: https://arxiv.org/abs/2501.19393
-- **Model**: https://hf.co/simplescaling/s1-32B
-- **Data**: https://hf.co/datasets/simplescaling/s1K
+- **Model**: https://hf.co/simplescaling/s1.1-32B (Old: https://hf.co/simplescaling/s1-32B)
+- **Data**: https://hf.co/datasets/simplescaling/s1K-1.1 (Old: https://hf.co/datasets/simplescaling/s1K)
     - s1-prob: https://hf.co/datasets/simplescaling/s1-prob
     - s1-teasers: https://hf.co/datasets/simplescaling/s1-teasers
     - Full 59K: https://hf.co/datasets/simplescaling/data_ablation_full59K

@@ -246,7 +246,7 @@ To recreate s1K follow the steps below. In various files you will have to rename
 
 ### Visuals
 
-All figures and some tables are created via [this colab](https://colab.research.google.com/drive/1GAfwbJs2Y1dgGGsxrQyQg2G7CRH5NgN3?usp=sharing) equivalent to `visuals/visuals.ipynb`. Some are subsequently edited via the `visuals/s1.fig` file, which you can load in Figma.
+All figures and some tables are created via [this colab](https://colab.research.google.com/drive/1GAfwbJs2Y1dgGGsxrQyQg2G7CRH5NgN3?usp=sharing) equivalent to `visuals/visuals.ipynb`. Some are subsequently edited via the `visuals/s1.fig` file, which you can load in Figma. The output figures are in `visuals/` in pdf or png format.
 
 ### Known Issues
 

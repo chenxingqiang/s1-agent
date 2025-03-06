@@ -243,6 +243,7 @@ To recreate s1K follow the steps below. In various files you will have to rename
 3. Generate answers with Qwen via `python data/bulk_inference.py` that can be launched with `data/bulk_inference.sh`.
 4. Add features by running `python data/featurization.py`.
 5. Run final filtering via going through `data/filter.ipynb`.
+6. If you want to run grading on the final questions to produce e.g. a gemini_grade column as in [this dataset](https://huggingface.co/datasets/simplescaling/s1K-1.1), you can use `data/grading.ipynb`.
 
 ### Visuals
 
